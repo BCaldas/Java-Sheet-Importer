@@ -1,6 +1,6 @@
 package com.bcaldas.sheetimporter.validation.cell;
 
-import com.bcaldas.sheetimporter.annotations.CellNotEmpty;
+import com.bcaldas.sheetimporter.annotations.SheetCellNotEmpty;
 import com.bcaldas.sheetimporter.exception.CellValidationException;
 import org.apache.poi.ss.usermodel.Cell;
 
@@ -18,8 +18,8 @@ public class CellValidatorImp<T> implements CellValidator<T> {
     }
 
     private void verifyEmptyCell(Cell cell) {
-        if (modelClass.isAnnotationPresent(CellNotEmpty.class) && cell.toString().trim().isEmpty()) {
-            throw new CellValidationException(modelClass.getDeclaredAnnotation(CellNotEmpty.class).message());
+        if (modelClass.isAnnotationPresent(SheetCellNotEmpty.class) && cell.toString().trim().isEmpty()) {
+            throw new CellValidationException(modelClass.getDeclaredAnnotation(SheetCellNotEmpty.class).message());
         }
     }
 }

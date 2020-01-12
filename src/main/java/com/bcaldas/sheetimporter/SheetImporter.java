@@ -19,7 +19,7 @@ public class SheetImporter<T> {
 
     private Sheet sheet;
     private final Class<T> targetModelClass;
-    private List<String> declaredFieds;
+    private List<String> modelFields;
     private SheetValidator<T> sheetValidator;
     private CellValidator<T> cellValidator;
 
@@ -33,19 +33,18 @@ public class SheetImporter<T> {
     }
 
     private void getModelFields() {
-        this.declaredFieds = new ArrayList<>();
+        this.modelFields = new ArrayList<>();
         Field[] fields = this.targetModelClass.getDeclaredFields();
 
         for (Field field : fields) {
-            declaredFieds.add(field.getName());
+            modelFields.add(field.getName());
         }
     }
 
     public List<T> importSheet() throws IllegalAccessException, InstantiationException {
         sheetValidator.validate();
 
-        Row firstRow = SheetUtils.getHeadersRow(sheet);
-        Map<Integer, String> mapHeaderToField = mapHeaders(firstRow);
+        Map<Integer, String> mapHeaderToField = mapHeaders();
 
         List<T> objectList = new ArrayList<>();
         Iterator<Row> rowIterator = sheet.rowIterator();
@@ -59,17 +58,17 @@ public class SheetImporter<T> {
 
             row.forEach(cell -> {
                 cellValidator.validateCell(cell);
-                String fieldName = mapHeaderToField.get(cell.getColumnIndex());
+                String columnName = mapHeaderToField.get(cell.getColumnIndex());
                 try {
-                    if (declaredFieds.contains(fieldName)) {
-                        Field field = finalObject.getClass().getDeclaredField(fieldName);
+                    if (modelFields.contains(columnName)) {
+                        Field field = finalObject.getClass().getDeclaredField(columnName);
                         field.setAccessible(true);
                         parseValue(cell, field, finalObject);
                     }
                 } catch (NoSuchFieldException e) {
                     e.printStackTrace();
                 } catch (IllegalArgumentException e) {
-                    throw new ParseValueException("Cannot parse value " + cell.toString() + " from collumn " + fieldName + ". Cause is: " + e.getMessage());
+                    throw new ParseValueException("Cannot parse value " + cell.toString() + " from collumn " + columnName + ". Cause is: " + e.getMessage());
                 }
             });
             objectList.add(finalObject);
@@ -113,10 +112,11 @@ public class SheetImporter<T> {
         cellParse.doParse(cellImportStrategy);
     }
 
-    private Map<Integer, String> mapHeaders(Row row) {
+    private Map<Integer, String> mapHeaders() {
+        Row headersRow = SheetUtils.getHeadersRow(sheet);
         Map<Integer, String> mapHeaderToField = new HashMap<>();
 
-        row.forEach(cell -> {
+        headersRow.forEach(cell -> {
             mapHeaderToField.put(cell.getColumnIndex(), cell.getStringCellValue());
         });
 

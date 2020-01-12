@@ -7,6 +7,6 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface CellNotEmpty {
+public @interface SheetCellNotEmpty {
     String message() default "The cell cannot be empty.";
 }
