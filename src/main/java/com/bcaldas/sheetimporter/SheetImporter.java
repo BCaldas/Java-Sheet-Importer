@@ -1,5 +1,6 @@
 package com.bcaldas.sheetimporter;
 
+import com.bcaldas.sheetimporter.annotations.SheetColumnName;
 import com.bcaldas.sheetimporter.annotations.SheetNotDuplicate;
 import com.bcaldas.sheetimporter.cellparse.*;
 import com.bcaldas.sheetimporter.exception.ParseValueException;
@@ -35,7 +36,6 @@ public class SheetImporter<T> {
     private void getModelFields() {
         this.modelFields = new ArrayList<>();
         Field[] fields = this.targetModelClass.getDeclaredFields();
-
         for (Field field : fields) {
             modelFields.add(field.getName());
         }
@@ -60,11 +60,22 @@ public class SheetImporter<T> {
                 cellValidator.validateCell(cell);
                 String columnName = mapHeaderToField.get(cell.getColumnIndex());
                 try {
+                    Field[] declaredFields = finalObject.getClass().getDeclaredFields();
+                    String modelField;
+                    Field targetField = null;
                     if (modelFields.contains(columnName)) {
-                        Field field = finalObject.getClass().getDeclaredField(columnName);
-                        field.setAccessible(true);
-                        parseValue(cell, field, finalObject);
+                        targetField = finalObject.getClass().getDeclaredField(columnName);
+                    } else {
+                        for (Field field : declaredFields) {
+                            if (field.isAnnotationPresent(SheetColumnName.class)) {
+                                String annotationColumnName = field.getDeclaredAnnotation(SheetColumnName.class).value();
+                                if (annotationColumnName.equals(columnName)) {
+                                    targetField = field;
+                                }
+                            }
+                        }
                     }
+                    parseValue(cell, targetField, finalObject);
                 } catch (NoSuchFieldException e) {
                     e.printStackTrace();
                 } catch (IllegalArgumentException e) {
@@ -86,30 +97,32 @@ public class SheetImporter<T> {
 
     private void parseValue(Cell cell, Field field, T finalObject) {
 
-        CellImportStrategy cellImportStrategy;
-        CellParse cellParse = new CellParse();
+        if (field != null) {
+            CellImportStrategy cellImportStrategy;
+            CellParse cellParse = new CellParse();
+            field.setAccessible(true);
+            switch (cell.getCellTypeEnum()) {
+                case STRING:
+                    cellImportStrategy = new CellString(cell, field, finalObject);
+                    break;
 
-        switch (cell.getCellTypeEnum()) {
-            case STRING:
-                cellImportStrategy = new CellString(cell, field, finalObject);
-                break;
-            case NUMERIC:
-                cellImportStrategy = new CellNumber(cell, field, finalObject);
-                break;
+                case NUMERIC:
+                    cellImportStrategy = new CellNumber(cell, field, finalObject);
+                    break;
 
-            case BOOLEAN:
-                cellImportStrategy = new CellBoolean(cell, field, finalObject);
-                break;
+                case BOOLEAN:
+                    cellImportStrategy = new CellBoolean(cell, field, finalObject);
+                    break;
 
-            case BLANK:
-                cellImportStrategy = null;
-                break;
+                case BLANK:
+                    cellImportStrategy = null;
+                    break;
 
-            default:
-                throw new ParseValueException("Cannot determine type of value: " + cell.toString() + "from collumn " + cell.getColumnIndex());
+                default:
+                    throw new ParseValueException("Cannot determine type of value: " + cell.toString() + "from collumn " + cell.getColumnIndex());
+            }
+            cellParse.doParse(cellImportStrategy);
         }
-
-        cellParse.doParse(cellImportStrategy);
     }
 
     private Map<Integer, String> mapHeaders() {
